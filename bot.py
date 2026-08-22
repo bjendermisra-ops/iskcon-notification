@@ -1,165 +1,84 @@
-import os
 import sys
 import time
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+import re
+from playwright.sync_api import sync_playwright
 
-# ==================== आपकी डिटेल्स ====================
 EMAIL = "king123grt@gmail.com"
 PASSWORD = "santosh@29"
+APP_ID = "4050991"                     # आपका Iskcon Padyatra ऐप ID
 
-APP_NAME = "Iskcon Padyatra"          # App Name (Exact)
-NOTIF_TITLE = "Hare Krishna"          # Title (Max 20 chars)
-NOTIF_MESSAGE = "Ekadashi fast reminder!"  # Subtitle (Max 30 chars)
-# ======================================================
-
-def print_error_box(reason, fix):
-    print("\n" + "="*60)
-    print("❌ ERROR OCCURRED! / समस्या आ गई है:")
-    print(f"📌 REASON (कारण): {reason}")
-    print(f"🛠️  HOW TO FIX (समाधान): {fix}")
-    print("="*60 + "\n")
+NOTIF_TITLE = "Hare Krishna"           # Title (Max 20 chars)
+NOTIF_MESSAGE = "Ekadashi fast reminder!"   # Subtitle (Max 30 chars)
 
 def run():
-    print("\n🚀 [SYSTEM START] Initializing Super-Powered AppCreator24 Bot...")
-    stage = "INITIALIZATION"
-
+    print("\n🚀 [START] Ultra-Fast Direct AppCreator24 Bot...")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={"width": 1280, "height": 800})
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
         page = context.new_page()
 
         try:
-            # ----------------------------------------------------
-            # STAGE 1: LOGIN
-            # ----------------------------------------------------
-            stage = "LOGIN_PAGE"
-            print("\n[Stage 1] AppCreator24 Login पेज खोला जा रहा है...")
-            page.goto("https://www.appcreator24.com/login.php", timeout=45000)
+            # 1. Login
+            print("[1] Opening Login Page...")
+            page.goto("https://www.appcreator24.com/", wait_until="domcontentloaded", timeout=40000)
+            time.sleep(1)
+
+            print("[2] Submitting Email & Password...")
+            page.locator('input[type="text"], input[type="email"], input[name="email"], input[name="user"]').first.fill(EMAIL)
+            page.locator('input[type="password"], input[name="password"], input[name="pass"]').first.fill(PASSWORD)
+            page.locator('input[type="submit"], button:has-text("Sign in"), input[value*="Sign in"]').first.click()
+            page.wait_for_load_state("domcontentloaded", timeout=30000)
+            time.sleep(3)
+
+            current_url = page.url
+            print(f"[3] Current URL after login: {current_url}")
+
+            # Session ID nikalna
+            match = re.search(r'idsesion=([a-zA-Z0-9]+)', current_url)
+            if not match:
+                raise Exception("Login failed or Session ID not found. Check credentials.")
             
-            print("[Stage 1] Email और Password भरे जा रहे हैं...")
-            page.fill('input[type="text"], input[type="email"], input[name="email"]', EMAIL)
-            page.fill('input[type="password"], input[name="password"]', PASSWORD)
-            page.click('input[type="submit"], button:has-text("Sign in")')
-            page.wait_for_load_state("networkidle", timeout=30000)
+            session_id = match.group(1)
+            print(f"🔑 [4] Active Session ID Captured: {session_id}")
 
-            # Check if login succeeded
-            if "login" in page.url.lower():
-                body_text = page.inner_text("body")
-                page.screenshot(path="error_screenshot.png")
-                print_error_box(
-                    reason="Login Failed! (लॉगिन नहीं हुआ - गलत ईमेल या पासवर्ड हो सकता है)",
-                    fix="कृपया चेक करें कि पासवर्ड 'santosh@29' सही है या AppCreator24 पर कोई Captcha तो नहीं आ रहा।"
-                )
-                sys.exit(1)
-            
-            print("✅ [Stage 1 Success] Login सफल हो गया!")
+            # 2. Directly Jump to Send Notifications Page (pag=21)
+            notif_url = f"https://www.appcreator24.com/intra/intra.php?idioma=en&idsesion={session_id}&pag=21&idapp={APP_ID}"
+            print(f"[5] Jumping directly to Notifications Page for App ID: {APP_ID}...")
+            page.goto(notif_url, wait_until="domcontentloaded", timeout=30000)
+            time.sleep(2)
 
-            # ----------------------------------------------------
-            # STAGE 2: FIND & SELECT APP
-            # ----------------------------------------------------
-            stage = "SELECT_APP"
-            print(f"\n[Stage 2] '{APP_NAME}' ऐप ढूंढा जा रहा है...")
-            
-            # App link check
-            app_element = page.locator(f'text="{APP_NAME}"')
-            if app_element.count() == 0:
-                page.screenshot(path="error_screenshot.png")
-                # Available apps list nikaalna
-                available_apps = page.locator('table a').all_inner_texts()
-                apps_found = ", ".join([a.strip() for a in available_apps if a.strip()])
-                print_error_box(
-                    reason=f"'{APP_NAME}' नाम का ऐप आपके अकाउंट में नहीं मिला!",
-                    fix=f"कोड में APP_NAME को सही करें। आपके अकाउंट में ये ऐप्स मिले: [{apps_found}]"
-                )
-                sys.exit(1)
+            # 3. Click New Message
+            print("[6] Opening 'New message' form...")
+            page.locator('input[value="New message"]').first.click()
+            page.wait_for_load_state("domcontentloaded", timeout=30000)
+            time.sleep(2)
 
-            app_element.first.click()
-            page.wait_for_load_state("networkidle", timeout=30000)
-            print(f"✅ [Stage 2 Success] '{APP_NAME}' ऐप ओपन हो गया!")
-
-            # ----------------------------------------------------
-            # STAGE 3: OPEN NOTIFICATIONS
-            # ----------------------------------------------------
-            stage = "OPEN_NOTIFICATIONS"
-            print("\n[Stage 3] 'Send notifications' मेन्यू पर क्लिक किया जा रहा है...")
-            
-            notif_link = page.locator('text="Send notifications"')
-            if notif_link.count() == 0:
-                page.screenshot(path="error_screenshot.png")
-                print_error_box(
-                    reason="'Send notifications' मेन्यू नहीं मिला।",
-                    fix="शायद ऐप का साइडबार लोड नहीं हुआ। दोबारा चलाकर देखें।"
-                )
-                sys.exit(1)
-
-            notif_link.first.click()
-            page.wait_for_load_state("networkidle", timeout=30000)
-            print("✅ [Stage 3 Success] Notifications सेक्शन खुल गया!")
-
-            # ----------------------------------------------------
-            # STAGE 4: NEW MESSAGE FORM
-            # ----------------------------------------------------
-            stage = "NEW_MESSAGE_FORM"
-            print("\n[Stage 4] 'New message' फॉर्म खोला जा रहा है...")
-            page.click('input[value="New message"]')
-            page.wait_for_load_state("networkidle", timeout=30000)
-
-            print(f"[Stage 4] Title: '{NOTIF_TITLE}' और Subtitle: '{NOTIF_MESSAGE}' डाला जा रहा है...")
+            # 4. Fill Title & Message
+            print(f"[7] Typing Title: '{NOTIF_TITLE}' & Subtitle: '{NOTIF_MESSAGE}'...")
             inputs = page.locator('input[type="text"]')
-            if inputs.count() < 2:
-                page.screenshot(path="error_screenshot.png")
-                print_error_box(
-                    reason="नोटिफिकेशन फॉर्म के इनपुट बॉक्स नहीं मिले।",
-                    fix="AppCreator24 के फॉर्म लेआउट में बदलाव हुआ हो सकता है।"
-                )
-                sys.exit(1)
-
             inputs.nth(0).fill(NOTIF_TITLE)
             inputs.nth(1).fill(NOTIF_MESSAGE)
 
-            # Click Next
-            page.click('input[value="Next >>"]')
-            page.wait_for_load_state("networkidle", timeout=30000)
-            print("✅ [Stage 4 Success] फॉर्म भर गया और Next पेज पर आ गया!")
+            # 5. Click Next >>
+            print("[8] Clicking 'Next >>'...")
+            page.locator('input[value="Next >>"], input[value*="Next"]').first.click()
+            page.wait_for_load_state("domcontentloaded", timeout=30000)
+            time.sleep(2)
 
-            # ----------------------------------------------------
-            # STAGE 5: CONFIRM AND SEND
-            # ----------------------------------------------------
-            stage = "CONFIRM_SEND"
-            print("\n[Stage 5] 'Send >>' बटन दबाकर नोटिफिकेशन भेजा जा रहा है...")
-            
-            send_btn = page.locator('input[value="Send >>"]')
-            if send_btn.count() == 0:
-                page.screenshot(path="error_screenshot.png")
-                print_error_box(
-                    reason="कन्फर्मेशन पेज पर 'Send >>' बटन नहीं दिखा।",
-                    fix="चेक करें कि Title या Subtitle में कोई अमान्य कैरेक्टर तो नहीं है।"
-                )
-                sys.exit(1)
+            # 6. Click Send >>
+            print("[9] Clicking 'Send >>' to broadcast...")
+            page.locator('input[value="Send >>"], input[value*="Send"]').first.click()
+            time.sleep(5)
 
-            send_btn.click()
-            time.sleep(6)
+            print("\n" + "="*50)
+            print("🎉🎉 SUCCESS: NOTIFICATION SENT SUCCESSFULLY TO USERS! 🎉🎉")
+            print("="*50 + "\n")
 
-            print("\n" + "*"*60)
-            print("🎉🎉 100% SUCCESSFUL! NOTIFICATION SENT LIVE TO USERS! 🎉🎉")
-            print(f"📱 App: {APP_NAME}")
-            print(f"📝 Title: {NOTIF_TITLE}")
-            print(f"💬 Message: {NOTIF_MESSAGE}")
-            print("*"*60 + "\n")
-
-        except PlaywrightTimeoutError as e:
-            page.screenshot(path="error_screenshot.png")
-            print_error_box(
-                reason=f"Stage [{stage}] पर पेज लोड होने में ज्यादा समय लग गया (Timeout Error)!",
-                fix="AppCreator24 का सर्वर धीमा चल रहा है। 2-3 मिनट बाद दोबारा चलाएं।"
-            )
-            sys.exit(1)
         except Exception as e:
             page.screenshot(path="error_screenshot.png")
-            print_error_box(
-                reason=f"अनपेक्षित एरर (Stage: {stage}) -> {str(e)}",
-                fix="स्क्रीनशॉट Artifacts में सेव हो गया है, उसे चेक करके स्थिति देखें।"
-            )
+            print(f"\n❌ ERROR ENCOUNTERED: {str(e)}")
             sys.exit(1)
         finally:
             browser.close()
