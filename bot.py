@@ -1,89 +1,75 @@
 import sys
-import time
-from playwright.sync_api import sync_playwright
+import re
+import requests
 
 EMAIL = "king123grt@gmail.com"
 PASSWORD = "santosh@29"
-APP_NAME = "Iskcon Padyatra"          # App Name
+APP_ID = "4050991"                     # Iskcon Padyatra
 
-NOTIF_TITLE = "Hare Krishna"          # Title
-NOTIF_MESSAGE = "Ekadashi fast reminder!"  # Message
+NOTIF_TITLE = "Hare Krishna"           # Title
+NOTIF_MESSAGE = "Ekadashi fast reminder!"   # Message
 
 def run():
-    print("\n🚀 [START] Final AppCreator24 Bot Running...")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        )
-        page = context.new_page()
+    print("🚀 [START] Direct HTTP Fast Bot...")
+    s = requests.Session()
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    })
 
-        try:
-            # 1. Open Login
-            print("[1] Opening AppCreator24...")
-            page.goto("https://www.appcreator24.com/", timeout=45000)
-            page.wait_for_selector('input[type="password"]', timeout=20000)
+    # 1. Login Request
+    print("[1] Sending Login Request to AppCreator24...")
+    login_url = "https://www.appcreator24.com/android-creator.php"
+    login_data = {
+        "email": EMAIL,
+        "password": PASSWORD,
+        "idioma": "en"
+    }
 
-            # 2. Enter Credentials
-            print("[2] Entering Credentials...")
-            page.locator('input[type="text"], input[type="email"]').first.fill(EMAIL)
-            page.locator('input[type="password"]').first.fill(PASSWORD)
-            time.sleep(1)
+    res = s.post(login_url, data=login_data, allow_redirects=True)
+    
+    # Session ID nikaalna
+    idsesion = None
+    match = re.search(r'idsesion=([a-zA-Z0-9]+)', res.text + " " + res.url)
+    if match:
+        idsesion = match.group(1)
+    elif 'idsesion' in s.cookies:
+        idsesion = s.cookies['idsesion']
 
-            # 3. Sign In
-            print("[3] Clicking Sign in...")
-            page.locator('input[value="Sign in"], input[type="submit"], button:has-text("Sign in")').first.click()
-            
-            # Wait for login page to load (android-creator.php or intra.php)
-            page.wait_for_selector('text="Apps", a[href*="idapp"], table', timeout=30000)
-            print(f"✅ [4] Logged In! Current URL: {page.url}")
-            time.sleep(2)
+    if not idsesion:
+        # Check main page
+        res_main = s.get("https://www.appcreator24.com/intra/intra.php?idioma=en&pag=2")
+        match = re.search(r'idsesion=([a-zA-Z0-9]+)', res_main.text + " " + res_main.url)
+        if match:
+            idsesion = match.group(1)
 
-            # 4. Click on App Name (Iskcon Padyatra)
-            print(f"[5] Clicking on '{APP_NAME}'...")
-            page.locator(f'text="{APP_NAME}"').first.click()
-            page.wait_for_load_state("domcontentloaded")
-            time.sleep(2)
+    if not idsesion:
+        print("❌ Login Failed! AppCreator24 ne Cloud IP reject kiya ya credentials match nahi hue.")
+        sys.exit(1)
 
-            # 5. Click "Send notifications" in left sidebar
-            print("[6] Opening 'Send notifications'...")
-            page.locator('text="Send notifications"').first.click()
-            page.wait_for_load_state("domcontentloaded")
-            time.sleep(2)
+    print(f"🔑 [2] Session ID Captured: {idsesion}")
 
-            # 6. Click "New message"
-            print("[7] Clicking 'New message' button...")
-            page.locator('input[value="New message"]').first.click()
-            page.wait_for_selector('input[value="Next >>"], input[value*="Next"]', timeout=25000)
-            time.sleep(1)
+    # 2. Direct Send Notification POST Request
+    print(f"[3] Posting Notification to App ID: {APP_ID}...")
+    post_notif_url = f"https://www.appcreator24.com/intra/intra.php?idioma=en&idsesion={idsesion}&pag=21&idapp={APP_ID}"
+    
+    notif_payload = {
+        "titulo": NOTIF_TITLE,
+        "subtitulo": NOTIF_MESSAGE,
+        "tipo_dest": "0",
+        "accion": "0",
+        "btn_enviar": "Send >>",
+        "enviar": "1"
+    }
 
-            # 7. Fill Title & Message
-            print(f"[8] Filling Title: '{NOTIF_TITLE}' & Subtitle: '{NOTIF_MESSAGE}'...")
-            text_inputs = page.locator('input[type="text"]')
-            text_inputs.nth(0).fill(NOTIF_TITLE)
-            text_inputs.nth(1).fill(NOTIF_MESSAGE)
+    send_res = s.post(post_notif_url, data=notif_payload)
 
-            # 8. Click Next >>
-            print("[9] Clicking 'Next >>'...")
-            page.locator('input[value="Next >>"], input[value*="Next"]').first.click()
-            page.wait_for_selector('input[value="Send >>"], input[value*="Send"]', timeout=25000)
-            time.sleep(1)
-
-            # 9. Click Send >>
-            print("[10] Confirming & Broadcasting (Send >>)...")
-            page.locator('input[value="Send >>"], input[value*="Send"]').first.click()
-            time.sleep(6)
-
-            print("\n" + "="*55)
-            print("🎉🎉 100% SUCCESS: NOTIFICATION DELIVERED! 🎉🎉")
-            print("="*55 + "\n")
-
-        except Exception as e:
-            page.screenshot(path="error_screenshot.png")
-            print(f"\n❌ ERROR: {str(e)}")
-            sys.exit(1)
-        finally:
-            browser.close()
+    if send_res.status_code == 200:
+        print("\n" + "="*50)
+        print("🎉🎉 100% SUCCESS: NOTIFICATION SENT DIRECTLY! 🎉🎉")
+        print("="*50 + "\n")
+    else:
+        print(f"❌ Failed with status: {send_res.status_code}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     run()
