@@ -1,34 +1,24 @@
 name: Send Notification
 
 on:
-  workflow_dispatch: # मैन्युअल रन करने के लिए
+  workflow_dispatch:
   schedule:
-    - cron: '30 0 * * *' # रोजाना सुबह 6:00 AM IST
+    - cron: '30 0 * * *'
 
 jobs:
-  execute-bot:
+  fast-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Download Repository Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: 2. Setup Python Environment
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 3. Install Playwright & Headless Browser
-        run: |
-          pip install playwright
-          playwright install chromium
+      - name: Install Requests
+        run: pip install requests
 
-      - name: 4. Run Diagnostic Bot
+      - name: Execute Notification
         run: python bot.py
-
-      # अगर कोई भी एरर आता है, तो यह स्टेप ऑटोमैटिक स्क्रीनशॉट अपलोड कर देगा
-      - name: 5. Upload Error Screenshot if Failed
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-screenshot
-          path: error_screenshot.png
